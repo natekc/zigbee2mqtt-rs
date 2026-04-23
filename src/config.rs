@@ -4,10 +4,17 @@ use std::path::Path;
 
 use crate::error::{Error, Result};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(default)]
 pub struct Config {
     pub serial: SerialConfig,
+    /// MQTT broker settings.
+    ///
+    /// When the `[mqtt]` section is absent the bridge connects to the default
+    /// broker (localhost:1883).  Set `MqttConfig::enabled = false` in Rust
+    /// to run broker-free and deliver events exclusively via the notify
+    /// channel (see `Bridge::with_notify`).  This field is not read from
+    /// YAML; it must be set programmatically after loading the config.
     pub mqtt: MqttConfig,
     pub permit_join: bool,
     pub homeassistant: bool,
@@ -35,6 +42,12 @@ pub enum AdapterType {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct MqttConfig {
+    /// Set to `false` to run without an MQTT broker.
+    ///
+    /// Not deserialised from YAML; set this field in Rust after loading the
+    /// config.  YAML consumers always connect to the configured broker.
+    #[serde(skip)]
+    pub enabled: bool,
     pub server: String,
     pub port: u16,
     pub base_topic: String,
@@ -65,19 +78,6 @@ pub struct AdvancedConfig {
     pub cache_state: bool,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            serial: SerialConfig::default(),
-            mqtt: MqttConfig::default(),
-            permit_join: false,
-            homeassistant: false,
-            devices: HashMap::new(),
-            advanced: AdvancedConfig::default(),
-        }
-    }
-}
-
 impl Default for SerialConfig {
     fn default() -> Self {
         Self {
@@ -92,6 +92,7 @@ impl Default for SerialConfig {
 impl Default for MqttConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             server: "localhost".to_string(),
             port: 1883,
             base_topic: "zigbee2mqtt".to_string(),

@@ -51,7 +51,7 @@ async fn main() {
         env!("CARGO_PKG_VERSION"),
         cfg.serial.port,
         cfg.mqtt.server,
-        cfg.mqtt.port
+        cfg.mqtt.port,
     );
 
     let bridge = Bridge::new(cfg, args.config.clone());

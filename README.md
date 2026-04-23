@@ -76,6 +76,53 @@ devices:
     friendly_name: bedroom_sensor
 ```
 
+## Library Usage
+
+Embed the bridge in your own Rust application without an MQTT broker:
+
+```rust
+use zigbee2mqtt_rs::{
+    bridge::Bridge,
+    config::Config,
+    BridgeCommand, ZigbeeEvent,
+};
+
+#[tokio::main]
+async fn main() {
+    let mut cfg = Config::default();
+    cfg.serial.port = "/dev/ttyACM0".to_string();
+    cfg.mqtt.enabled = false; // no broker — events delivered in-process only
+
+    let (bridge, mut events, cmds) =
+        Bridge::new_with_channels(cfg, "configuration.yaml".into());
+
+    tokio::spawn(async move {
+        bridge.run().await.unwrap();
+    });
+
+    while let Some(event) = events.recv().await {
+        match event {
+            ZigbeeEvent::DeviceInterviewComplete { info } => {
+                println!("device ready: {} ({})", info.friendly_name, info.ieee_addr);
+            }
+            ZigbeeEvent::StateChanged { ieee_addr, delta } => {
+                println!("{ieee_addr}: {delta:?}");
+            }
+            _ => {}
+        }
+    }
+}
+```
+
+To permit devices to join:
+
+```rust
+cmds.send(BridgeCommand::PermitJoin { duration: 254 }).await?;
+```
+
+To use both an MQTT broker and the in-process channel, keep `mqtt.enabled = true`
+(the default) and wire up the channel.  Events are delivered to both.
+
 ## Migrating from zigbee2mqtt
 
 1. Stop zigbee2mqtt
@@ -164,8 +211,9 @@ cargo clippy
 src/
   main.rs           - CLI entry point
   lib.rs            - Library crate root
-  bridge.rs         - Main event loop, MQTT command handling
+  bridge.rs         - Main event loop, MQTT and in-process command handling
   config.rs         - YAML configuration parsing
+  events.rs         - ZigbeeEvent and BridgeCommand types (public API)
   database.rs       - zigbee2mqtt database.db import
   error.rs          - Error types
   homeassistant.rs  - HA MQTT discovery messages
