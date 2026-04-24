@@ -1050,6 +1050,7 @@ dependencies = [
  "dashmap",
  "futures",
  "hex",
+ "libc",
  "rumqttc",
  "serde",
  "serde_json",

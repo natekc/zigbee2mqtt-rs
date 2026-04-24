@@ -30,6 +30,10 @@ rumqttc = { version = "0.24", default-features = false }
 # Byte buffers
 bytes = "1"
 
+# Linux USBDEVFS ioctls (USBDEVFS_BULK, USBDEVFS_CONTROL) used by the
+# usbdevfs-serial feature to issue sequential bulk transfers directly to a USB serial device.
+libc = { version = "0.2", optional = true }
+
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
@@ -46,6 +50,29 @@ hex = "0.4"
 futures = "0.3"
 tokio-stream = "0.1"
 dashmap = "5"
+
+[features]
+# Generic mechanism: sequential USBDEVFS bulk-transfer transport that bypasses
+# the kernel serial driver and drives the USB device directly.
+#
+# Some dwc2 USB host controllers cannot multiplex Bulk-IN and Bulk-OUT URBs
+# simultaneously on the same full-speed device.  When the kernel serial driver
+# is active it submits persistent Bulk-IN URBs that starve outgoing frames.
+# This feature bypasses the driver entirely and issues Bulk-OUT before Bulk-IN
+# on every iteration, so the host controller never sees concurrent URBs.
+#
+# Activates on Linux only; non-Linux targets always use the tokio-serial path.
+usbdevfs-serial = ["dep:libc"]
+
+# CH340-specific USBDEVFS transport (implies usbdevfs-serial).
+#
+# Adds CH340 vendor control transfers for UART initialisation (baud rate,
+# LCR, modem control).  Use this flag when connecting a CC2531/CC2652 ZNP
+# dongle via a CH340 USB serial chip on a dwc2 host.
+#
+# Requires a /dev/bus/usb/BUS/DEV path in the transport config.
+# See the transport module doc for udev rules and modprobe blacklist.
+ch340-usbdevfs = ["usbdevfs-serial"]
 
 [profile.release]
 opt-level = "z"      # Optimize for size (good for RPi 3)
