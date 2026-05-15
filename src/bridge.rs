@@ -420,6 +420,17 @@ async fn handle_coordinator_event(
                 devices.add(make_device(ieee_addr, nwk_addr, device_cfgs));
             } else {
                 devices.update_nwk_addr(&ieee_addr, nwk_addr);
+                // A re-joining device must be re-interviewed so consumers
+                // (home-edge entity store) receive an up-to-date
+                // DeviceInterviewComplete event.  Without this reset the
+                // SimpleDescRsp handler sees interview_complete=true and
+                // never fires the event, leaving entities empty.
+                // Mirrors zigbee2mqtt-js behaviour: deviceJoined always
+                // marks the device as needing re-interview.
+                if let Some(mut dev) = devices.get_mut_by_ieee(&ieee_addr) {
+                    dev.interview_complete = false;
+                    dev.endpoints.clear();
+                }
             }
             dispatcher.device_joined(ieee_addr, nwk_addr).await;
             if let Err(e) = coord.request_active_eps(nwk_addr).await {
