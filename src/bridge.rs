@@ -185,7 +185,10 @@ impl From<&Device> for DeviceInfo {
             friendly_name: dev.friendly_name.clone(),
             manufacturer:  dev.manufacturer.clone(),
             model:         dev.model.clone(),
+            power_source:  dev.power_source.clone(),
+            sw_build_id:   dev.sw_build_id.clone(),
             endpoints:     dev.endpoints.clone(),
+            initial_state: dev.state.clone(),
         }
     }
 }
