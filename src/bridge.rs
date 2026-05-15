@@ -270,6 +270,27 @@ impl Bridge {
 
         dispatcher.republish(&self.devices, &coord).await;
 
+        // In broker-free mode `republish()` is a no-op because there is no
+        // MQTT connection.  Emit DeviceInterviewComplete for every device we
+        // loaded from the database so the notify-channel consumer can restore
+        // entity registrations and last-known states immediately — without
+        // waiting for devices to send EndDeviceAnnounce.
+        //
+        // This mirrors ZHA's device restoration on HA startup: known devices
+        // are immediately surfaced as fully-interviewed even if the radio has
+        // not yet heard from them.
+        if dispatcher.notify_tx.is_some() && !self.cfg.mqtt.enabled {
+            let loaded = self.devices.all_devices();
+            if !loaded.is_empty() {
+                info!("Replaying {} device(s) from startup database to notify channel", loaded.len());
+                for dev in &loaded {
+                    if dev.interview_complete {
+                        dispatcher.interview_complete(dev, &self.devices).await;
+                    }
+                }
+            }
+        }
+
         if self.cfg.permit_join {
             coord.permit_join(254).await?;
             info!("Permit join enabled (254 s)");

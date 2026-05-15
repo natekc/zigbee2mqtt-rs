@@ -136,6 +136,13 @@ impl ZnpCoordinator {
         // Enable ZDO direct callbacks (so we receive device announcements etc.)
         self.nv_write(nv::ZDO_DIRECT_CB, &[0x01]).await?;
 
+        // Tell Z-Stack to restore the existing Zigbee network rather than
+        // forming a brand-new PAN on every restart.  Mirrors the behavior of
+        // zigbee2mqtt-js which writes STARTUP_OPTION=0x00 on every normal
+        // (non-factory-reset) startup.  Without this, the coordinator creates
+        // a fresh network each time, permanently orphaning paired devices.
+        self.nv_write(nv::STARTUP_OPTION, &[0x00]).await?;
+
         Ok(())
     }
 

@@ -59,6 +59,11 @@ pub mod nv {
     pub const PRECFGKEY: u16 = 0x0062;
     pub const PRECFGKEYS_ENABLE: u16 = 0x0063;
     pub const ZDO_DIRECT_CB: u16 = 0x008F;
+    /// Controls whether Z-Stack clears its network state on the next
+    /// `ZDO_STARTUP_FROM_APP`.  Write `0x00` ("normal startup") to restore
+    /// the existing Zigbee network instead of forming a new one.
+    /// Without this, every restart orphans all previously paired devices.
+    pub const STARTUP_OPTION: u16 = 0x0003;
 }
 
 pub fn sys_osal_nv_write(item_id: u16, data: &[u8]) -> ZnpFrame {
