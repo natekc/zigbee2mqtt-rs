@@ -1,9 +1,11 @@
 pub mod basic;
 pub mod color;
+pub mod electrical_measurement;
 pub mod humidity;
 pub mod ias_zone;
 pub mod illuminance;
 pub mod level;
+pub mod metering;
 pub mod occupancy;
 pub mod on_off;
 pub mod power;
@@ -38,6 +40,10 @@ pub fn handler_for(cluster_id: u16) -> Option<&'static dyn ClusterHandler> {
         0x0405 => Some(&humidity::HumidityCluster),
         0x0406 => Some(&occupancy::OccupancyCluster),
         0x0500 => Some(&ias_zone::IasZoneCluster),
+        // Source: Zigbee Cluster Library spec §10.4 Smart Energy Metering
+        0x0702 => Some(&metering::MeteringCluster),
+        // Source: Zigbee Cluster Library spec §4.3 Electrical Measurement
+        0x0B04 => Some(&electrical_measurement::ElectricalMeasurementCluster),
         _ => None,
     }
 }

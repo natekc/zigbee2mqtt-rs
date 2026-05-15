@@ -16,6 +16,7 @@ pub enum DataType {
     Uint16    = 0x21,
     Uint24    = 0x22,
     Uint32    = 0x23,
+    Uint48    = 0x25,
     Int8      = 0x28,
     Int16     = 0x29,
     Int24     = 0x2A,
@@ -48,6 +49,7 @@ impl DataType {
             0x21 => Self::Uint16,
             0x22 => Self::Uint24,
             0x23 => Self::Uint32,
+            0x25 => Self::Uint48,
             0x28 => Self::Int8,
             0x29 => Self::Int16,
             0x2A => Self::Int24,
@@ -74,6 +76,7 @@ impl DataType {
             Self::Bitmap16 | Self::Uint16 | Self::Int16 | Self::Enum16 | Self::Data16 | Self::SemiFloat => Some(2),
             Self::Uint24 | Self::Int24 | Self::Data24 => Some(3),
             Self::Uint32 | Self::Int32 | Self::Data32 | Self::Float => Some(4),
+            Self::Uint48 => Some(6),
             Self::Double => Some(8),
             _ => None,
         }
@@ -87,6 +90,7 @@ pub enum AttributeValue {
     U16(u16),
     U24(u32),
     U32(u32),
+    U48(u64),
     I8(i8),
     I16(i16),
     I32(i32),
@@ -123,6 +127,13 @@ impl AttributeValue {
             DataType::Uint32 | DataType::Data32 => {
                 if buf.len() < 4 { return Err(Error::Zcl("truncated u32".into())); }
                 Ok((Self::U32(u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]])), 4))
+            }
+            DataType::Uint48 => {
+                // 6-byte little-endian unsigned integer
+                // Source: Zigbee Cluster Library spec §2.5.2 (Uint48, type 0x25)
+                if buf.len() < 6 { return Err(Error::Zcl("truncated u48".into())); }
+                let v = u64::from_le_bytes([buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], 0, 0]);
+                Ok((Self::U48(v), 6))
             }
             DataType::Int16 => {
                 if buf.len() < 2 { return Err(Error::Zcl("truncated i16".into())); }
@@ -169,6 +180,7 @@ impl AttributeValue {
             Self::U16(v) => Some(*v as f64),
             Self::U24(v) => Some(*v as f64),
             Self::U32(v) => Some(*v as f64),
+            Self::U48(v) => Some(*v as f64),
             Self::I8(v)  => Some(*v as f64),
             Self::I16(v) => Some(*v as f64),
             Self::I32(v) => Some(*v as f64),
