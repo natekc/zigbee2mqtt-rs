@@ -12,21 +12,33 @@ pub struct IasZoneCluster;
 // Cluster-specific commands (server → client):
 //   0x00 – Zone Status Change Notification
 
-const ZONE_STATUS: u16 = 0x0002;
+// Source: Zigbee Cluster Library spec, Table 8-1 (IAS Zone cluster attribute IDs)
+const ZONE_TYPE:   u16 = 0x0001; // Enum16 — identifies the kind of sensor
+const ZONE_STATUS: u16 = 0x0002; // Bitmap16 — alarm/tamper/battery bits
 
-const ALARM1: u16 = 0x0001;
-const TAMPER: u16 = 0x0004;
-const BATTERY: u16 = 0x0008;
-const TROUBLE: u16 = 0x0040;
+const ALARM1:   u16 = 0x0001;
+const TAMPER:   u16 = 0x0004;
+const BATTERY:  u16 = 0x0008;
+const TROUBLE:  u16 = 0x0040;
 
 impl ClusterHandler for IasZoneCluster {
     fn process_reports(&self, reports: &[AttributeReport]) -> Vec<(String, Value)> {
         let mut out = Vec::new();
         for r in reports {
-            if r.attr_id == ZONE_STATUS {
-                if let Some(v) = r.value.as_f64() {
-                    out.extend(decode_zone_status(v as u16));
+            match r.attr_id {
+                ZONE_TYPE => {
+                    // Source: Zigbee spec IAS Zone cluster attribute 0x0001 ZoneType (Enum16).
+                    // Emit as a numeric u16 so consumers can map it to HA device_class.
+                    if let Some(v) = r.value.as_f64() {
+                        out.push(("zone_type".into(), json!(v as u16)));
+                    }
                 }
+                ZONE_STATUS => {
+                    if let Some(v) = r.value.as_f64() {
+                        out.extend(decode_zone_status(v as u16));
+                    }
+                }
+                _ => {}
             }
         }
         out
@@ -95,5 +107,41 @@ mod tests {
         let result = IasZoneCluster.process_command(0x00, &payload);
         assert!(result.iter().any(|(k, v)| k == "contact" && v == &json!(false)));
         assert!(result.iter().any(|(k, v)| k == "tamper" && v == &json!(true)));
+    }
+
+    // Source: Zigbee spec IAS Zone cluster, Table 8-4 IAS Zone Type attribute values.
+    #[test]
+    fn zone_type_motion_sensor() {
+        let reports = vec![AttributeReport {
+            attr_id: ZONE_TYPE,
+            value: AttributeValue::U16(0x000d), // Motion sensor
+        }];
+        let result = IasZoneCluster.process_reports(&reports);
+        assert!(
+            result.iter().any(|(k, v)| k == "zone_type" && v == &json!(0x000du16)),
+            "zone_type should be emitted as a u16 value"
+        );
+    }
+
+    #[test]
+    fn zone_type_contact_switch() {
+        let reports = vec![AttributeReport {
+            attr_id: ZONE_TYPE,
+            value: AttributeValue::U16(0x0015), // Contact switch (door/window)
+        }];
+        let result = IasZoneCluster.process_reports(&reports);
+        assert!(result.iter().any(|(k, v)| k == "zone_type" && v == &json!(0x0015u16)));
+    }
+
+    #[test]
+    fn zone_type_and_status_in_same_report() {
+        // Both ZoneType and ZoneStatus can appear in the same attribute report list.
+        let reports = vec![
+            AttributeReport { attr_id: ZONE_TYPE,   value: AttributeValue::U16(0x0015) },
+            AttributeReport { attr_id: ZONE_STATUS,  value: AttributeValue::U16(0x0001) },
+        ];
+        let result = IasZoneCluster.process_reports(&reports);
+        assert!(result.iter().any(|(k, v)| k == "zone_type" && v == &json!(0x0015u16)));
+        assert!(result.iter().any(|(k, v)| k == "contact" && v == &json!(false)));
     }
 }
